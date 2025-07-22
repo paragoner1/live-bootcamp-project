@@ -1,11 +1,14 @@
 use std::error::Error;
 use std::result::Result;
-use axum::{serve::Serve, Router, http::StatusCode, response::IntoResponse};
+use axum::{serve::Serve, Router,};
 use axum::routing::{IntoMakeService, post};
 use tokio::net::TcpListener;
 use tower_http::services::ServeDir;
 
+
 // This struct encapsulates our application-related logic.
+
+pub mod routes;
 pub struct Application {
     server: Serve<TcpListener, IntoMakeService<Router>, Router>,
     // address is exposed as a public field
@@ -21,11 +24,11 @@ impl Application {
         let router = Router::new()
             .fallback_service(ServeDir::new("assets"))
             // Add all other routes
-            .route("/signup", post(signup))
-            .route("/login", post(login))
-            .route("/logout", post(logout))
-            .route("/verify-2fa", post(verify_2fa))
-            .route("/verify-token", post(verify_token));
+            .route("/signup", post(routes::signup))
+            .route("/login", post(routes::login))
+            .route("/logout", post(routes::logout))
+            .route("/verify-2fa", post(routes::verify_2fa))
+            .route("/verify-token", post(routes::verify_token));
 
         let listener = TcpListener::bind(address).await?;
         let address = listener.local_addr()?.to_string();
@@ -41,24 +44,5 @@ impl Application {
     }
 }
 
-// Route handlers
+// Route handlers moved to `routes` module for easier navigation
 // For now we will simply return a 200 (OK) status code.
-async fn signup() -> impl IntoResponse {
-    StatusCode::OK.into_response()
-}
-
-async fn login() -> impl IntoResponse {
-    StatusCode::OK.into_response()
-}
-
-async fn logout() -> impl IntoResponse {
-    StatusCode::OK.into_response()
-}
-
-async fn verify_2fa() -> impl IntoResponse {
-    StatusCode::OK.into_response()
-}
-
-async fn verify_token() -> impl IntoResponse {
-    StatusCode::OK.into_response()
-}
