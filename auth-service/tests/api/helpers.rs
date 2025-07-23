@@ -1,6 +1,7 @@
 use auth_service::Application;
 use tokio;
 use reqwest;
+use uuid::Uuid;
 
 pub struct TestApp {
     pub address: String,
@@ -38,12 +39,16 @@ impl TestApp {
     }
 
     // TODO: Implement helper functions for all other routes (signup, login, logout, verify-2fa, and verify-token)
-    pub async fn post_signup(&self) -> reqwest::Response {
+    pub async fn post_signup<Body>(&self, body: &Body) -> reqwest::Response
+    where
+       Body: serde::Serialize,
+    {
         self.http_client
             .post(&format!("{}/signup", &self.address))
+            .json(body)
             .send()
             .await
-            .expect("Failed to execute signup request.")
+            .expect("Failed to execute request.")
     }
     pub async fn post_login(&self) -> reqwest::Response {
         self.http_client
@@ -73,4 +78,8 @@ impl TestApp {
             .await
             .expect("Failed to execute verify-token request.")
     }
+    
+    }
+    pub fn get_random_email() -> String {
+        format!("{}@example.com", Uuid::new_v4())
 }
