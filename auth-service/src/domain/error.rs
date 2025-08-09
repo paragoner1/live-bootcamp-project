@@ -1,9 +1,13 @@
-// SPRINT 2: Error types implementation
+// SPRINT 2: Domain-specific error types
 // This was added in Sprint 2 to provide proper error handling
 
 pub enum AuthAPIError {
     UserAlreadyExists,
     InvalidCredentials,
+    // SPRINT 3: New error types
+    IncorrectCredentials,
+    MissingToken,
+    InvalidToken,
     UnexpectedError,
 }
 
