@@ -39,6 +39,8 @@ jobs:
 
     - name: Build and test auth-service code
       working-directory: ./auth-service
+      env:
+        JWT_SECRET: secret
       run: |
         cargo build --verbose
         cargo test --verbose
