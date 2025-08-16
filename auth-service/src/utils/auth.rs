@@ -20,6 +20,7 @@ fn create_auth_cookie(token: String) -> Cookie<'static> {
         .path("/")
         .http_only(true)
         .same_site(SameSite::Lax)
+        // Remove domain restriction to allow cross-port access
         .build();
 
     cookie

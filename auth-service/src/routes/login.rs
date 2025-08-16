@@ -1,6 +1,3 @@
-// SPRINT 3: Complete login route with JWT token generation
-// This was added in Sprint 3 to provide authentication functionality
-
 use axum::{
     extract::State,
     http::StatusCode,
@@ -12,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     app_state::AppState,
-    domain::{Email, Password, AuthAPIError},
+    domain::{Email, Password, AuthAPIError, LoginAttemptId, TwoFACode},
     utils::auth::generate_auth_cookie,
 };
 
@@ -22,9 +19,21 @@ pub struct LoginRequest {
     pub password: String,
 }
 
-#[derive(Serialize)]
-pub struct LoginResponse {
+// The login route can return 2 possible success responses.
+// This enum models each response!
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
+pub enum LoginResponse {
+    RegularAuth,
+    TwoFactorAuth(TwoFactorAuthResponse),
+}
+
+// If a user requires 2FA, this JSON body should be returned!
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TwoFactorAuthResponse {
     pub message: String,
+    #[serde(rename = "loginAttemptId")]
+    pub login_attempt_id: String,
 }
 
 pub async fn login(
@@ -53,77 +62,72 @@ pub async fn login(
         Err(_) => return (jar, Err(AuthAPIError::IncorrectCredentials)),
     };
 
-    let auth_cookie = match generate_auth_cookie(&user.email) {
+    // Handle request based on user's 2FA configuration
+    match user.requires_2fa {
+        true => handle_2fa(&user.email, &state, jar).await,
+        false => handle_no_2fa(&user.email, jar).await,
+    }
+}
+
+async fn handle_2fa(
+    email: &Email,
+    state: &AppState,
+    jar: CookieJar,
+) -> (
+    CookieJar,
+    Result<(StatusCode, Json<LoginResponse>), AuthAPIError>,
+) {
+    // First, we must generate a new random login attempt ID and 2FA code
+    let login_attempt_id = LoginAttemptId::default();
+    let two_fa_code = TwoFACode::default();
+
+    // Store the ID and code in our 2FA code store
+    let mut two_fa_store = state.two_fa_code_store.write().await;
+    if two_fa_store
+        .add_code(email.clone(), login_attempt_id.clone(), two_fa_code.clone())
+        .await
+        .is_err()
+    {
+        return (jar, Err(AuthAPIError::UnexpectedError));
+    }
+
+    // TODO: send 2FA code via the email client. Return `AuthAPIError::UnexpectedError` if the operation fails.
+    if state.email_client
+        .send_email(
+            email,
+            "Your 2FA Code",
+            &format!("Your verification code is: {}", two_fa_code.as_ref()),
+        )
+        .await
+        .is_err()
+    {
+        return (jar, Err(AuthAPIError::UnexpectedError));
+    }
+
+    // Finally, we need to return the login attempt ID to the client
+    let response = LoginResponse::TwoFactorAuth(TwoFactorAuthResponse {
+        message: "2FA required".to_string(),
+        login_attempt_id: login_attempt_id.as_ref().to_string(),
+    });
+
+    (jar, Ok((StatusCode::PARTIAL_CONTENT, Json(response))))
+}
+
+async fn handle_no_2fa(
+    email: &Email,
+    jar: CookieJar,
+) -> (
+    CookieJar,
+    Result<(StatusCode, Json<LoginResponse>), AuthAPIError>,
+) {
+    // Generate auth cookie (like the old login function did)
+    let auth_cookie = match generate_auth_cookie(email) {
         Ok(cookie) => cookie,
         Err(_) => return (jar, Err(AuthAPIError::UnexpectedError)),
     };
 
     let updated_jar = jar.add(auth_cookie);
 
-    (updated_jar, Ok(StatusCode::OK.into_response()))
+    // Return 200 OK with the cookie
+    (updated_jar, Ok((StatusCode::OK, Json(LoginResponse::RegularAuth))))
 }
-
-// SPRINT 2: Complete login route with validation (commented out)
-// This was added in Sprint 2 to provide login functionality
-// use axum::{
-//     extract::State,
-//     http::StatusCode,
-//     response::IntoResponse,
-//     Json,
-// };
-// use serde::{Deserialize, Serialize};
-//
-// use crate::{
-//     app_state::AppState,
-//     domain::{Email, Password, AuthAPIError},
-// };
-//
-// #[derive(Deserialize)]
-// pub struct LoginRequest {
-//     pub email: String,
-//     pub password: String,
-// }
-//
-// #[derive(Serialize)]
-// pub struct LoginResponse {
-//     pub message: String,
-// }
-//
-// pub async fn login(
-//     State(app_state): State<AppState>,
-//     Json(request): Json<LoginRequest>,
-// ) -> Result<impl IntoResponse, AuthAPIError> {
-//     // Parse and validate email
-//     let email = Email::parse(request.email)
-//         .map_err(|_| AuthAPIError::InvalidCredentials)?;
-//
-//     // Parse and validate password
-//     let password = Password::parse(request.password)
-//         .map_err(|_| AuthAPIError::InvalidCredentials)?;
-//
-//     // Validate user credentials
-//     let user_store = app_state.user_store.read().await;
-//     user_store.validate_user(&email, &password).await
-//         .map_err(|_| AuthAPIError::InvalidCredentials)?;
-//
-//     // Return success response
-//     let response = LoginResponse {
-//         message: "Login successful!".to_string(),
-//     };
-//
-//     Ok((StatusCode::OK, Json(response)))
-// }
-
-// SPRINT 1: Simple placeholder - no validation or authentication
-// use axum::{http::StatusCode, response::IntoResponse, Json};
-// use serde::Deserialize;
-//
-// pub async fn login(Json(_request): Json<LoginRequest>) -> impl IntoResponse {
-//     StatusCode::OK.into_response()
-// }
-//
-// #[derive(Deserialize)]
-// pub struct LoginRequest {
-//     pub email: String,
-//     pub password: String,
-// }
