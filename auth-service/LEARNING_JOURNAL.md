@@ -8,9 +8,9 @@
 ## 📋 Project Overview
 
 **Project**: Microservices authentication system with Rust and Axum
-**Current Status**: Sprint 3 of 9 completed ✅ (Committed: 4fecef2)
+**Current Status**: Sprint 4 of 9 completed ✅ (Committed: 0e44f20)
 **Architecture**: Domain-Driven Design with JWT authentication
-**Testing**: 100% test pass rate (26/26 tests passing)
+**Testing**: 100% test pass rate (35/35 tests passing)
 
 ---
 
@@ -68,6 +68,70 @@ src/
 - **"I started with the fundamentals to understand HTTP and routing"**
 - **"I established a clean project structure that would support future complexity"**
 - **"I focused on learning the Axum framework's type-safe approach"**
+
+---
+
+### Sprint 4: Two-Factor Authentication (2FA) & Email Integration
+
+#### What We Built
+- EmailClient trait and MockEmailClient implementation
+- TwoFACodeStore trait and HashmapTwoFACodeStore implementation
+- Complete 2FA authentication flow: login → 2FA code → email → verification
+- Single-use 2FA codes with automatic cleanup
+- Production deployment with Docker and CI/CD
+- Comprehensive test coverage for all 2FA scenarios
+
+#### Key Architectural Decisions
+
+**1. Why Trait-Based Email Client?**
+```rust
+#[async_trait::async_trait]
+pub trait EmailClient {
+    async fn send_email(
+        &self,
+        recipient: &Email,
+        subject: &str,
+        content: &str,
+    ) -> Result<(), String>;
+}
+
+// Benefits:
+// ✅ Dependency injection for testing
+// ✅ Easy to swap implementations (mock vs real)
+// ✅ Follows SOLID principles
+// ✅ Enables clean architecture
+```
+
+**2. Why Single-Use 2FA Codes?**
+```rust
+// Security best practice:
+// ✅ Codes are removed after successful verification
+// ✅ Prevents replay attacks
+// ✅ Time-limited codes (10 minutes)
+// ✅ UUID-based login attempt tracking
+```
+
+**3. Production Deployment Strategy**
+```yaml
+# Docker Compose with environment variables
+auth-service:
+  environment:
+    JWT_SECRET: secret
+  restart: "always"
+```
+
+#### Technical Achievements
+- **Domain-Driven Design**: Email client trait for dependency injection
+- **Security**: Single-use 2FA codes with automatic expiration
+- **Testing**: Comprehensive test coverage (35/35 tests passing)
+- **Deployment**: Automated CI/CD pipeline with GitHub Actions
+- **Cross-Service Communication**: JWT authentication between microservices
+
+#### Interview Talking Points
+- **"I implemented a complete 2FA system with proper security practices"**
+- **"I used trait-based design for dependency injection and testability"**
+- **"I deployed to production with automated CI/CD and proper environment management"**
+- **"I ensured single-use codes and proper JWT token validation"**
 
 ---
 
