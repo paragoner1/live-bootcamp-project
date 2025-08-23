@@ -12,6 +12,7 @@ use domain::AuthAPIError;
 use routes::{login, logout, signup, verify_2fa, verify_token};
 use serde::{Deserialize, Serialize};
 use tower_http::services::ServeDir;
+use sqlx::{postgres::PgPoolOptions, PgPool};
 
 pub mod app_state;
 pub mod domain;
@@ -74,8 +75,18 @@ impl IntoResponse for AuthAPIError {
     }
 }
 
+/// Create a new PostgreSQL connection pool
+pub async fn get_postgres_pool(url: &str) -> Result<PgPool, sqlx::Error> {
+	PgPoolOptions::new().max_connections(5).connect(url).await
+}
+
+pub fn get_redis_client(redis_hostname: String) -> redis::RedisResult<redis::Client> {
+    let redis_url = format!("redis://{}/", redis_hostname);
+    redis::Client::open(redis_url)
+}
+
 // Re-export services for easier access
-pub use services::hashmap_user_store::HashmapUserStore;
-pub use services::hashset_banned_token_store::HashsetBannedTokenStore;
+pub use services::data_stores::hashmap_user_store::HashmapUserStore;
+pub use services::data_stores::hashset_banned_token_store::HashsetBannedTokenStore;
 
 

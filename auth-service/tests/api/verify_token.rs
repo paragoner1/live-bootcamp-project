@@ -2,7 +2,7 @@ use crate::helpers::TestApp;
 
 #[tokio::test]
 async fn verify_token_returns_200() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     // Create a user first
     let random_email = crate::helpers::get_random_email();
@@ -36,4 +36,6 @@ async fn verify_token_returns_200() {
     let response = app.post_verify_token(&token_body).await;
 
     assert_eq!(response.status().as_u16(), 200);
+
+    app.clean_up().await;
 }

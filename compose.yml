@@ -16,3 +16,28 @@ services:
     restart: "always" # automatically restart container when server crashes
     ports:
       - "3000:3000" # expose port 3000 so that applications outside the container can connect to it 
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+      # Use the Docker service name 'db' as the host when running inside Docker
+      DATABASE_URL: "postgres://postgres:${POSTGRES_PASSWORD}@db:5432"
+    depends_on:
+      - db
+      - redis
+  db:
+    image: postgres:15.2-alpine
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - db:/var/lib/postgresql/data
+  redis:
+    image: redis:7.0-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+
+volumes:
+  db:
+    driver: local

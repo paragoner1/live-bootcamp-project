@@ -9,7 +9,7 @@ use crate::helpers::{get_random_email, TestApp};
 
 #[tokio::test]
 async fn should_return_422_if_malformed_input() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
     let test_cases = [
         serde_json::json!({
             "email": "test@example.com",
@@ -30,11 +30,13 @@ async fn should_return_422_if_malformed_input() {
         let response = app.post_verify_2fa(test_case).await;
         assert_eq!(response.status().as_u16(), 422);
     }
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_400_if_invalid_input() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
     let test_cases = [
         serde_json::json!({
             "email": "invalid-email",
@@ -57,11 +59,13 @@ async fn should_return_400_if_invalid_input() {
         let response = app.post_verify_2fa(test_case).await;
         assert_eq!(response.status().as_u16(), 400);
     }
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_401_if_incorrect_credentials() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
     let random_email = get_random_email();
     
     // Sign up a user
@@ -92,11 +96,13 @@ async fn should_return_401_if_incorrect_credentials() {
     });
     let response = app.post_verify_2fa(&verify_body).await;
     assert_eq!(response.status().as_u16(), 401);
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_401_if_old_code() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
     let random_email = get_random_email();
     
     // Sign up a user
@@ -134,11 +140,13 @@ async fn should_return_401_if_old_code() {
     });
     let response = app.post_verify_2fa(&verify_body).await;
     assert_eq!(response.status().as_u16(), 401);
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_200_if_correct_code() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
     let random_email = get_random_email();
     
     // Sign up a user
@@ -179,11 +187,13 @@ async fn should_return_200_if_correct_code() {
     // Check that auth cookie is set
     let cookies = response.headers().get("set-cookie").unwrap();
     assert!(cookies.to_str().unwrap().contains(JWT_COOKIE_NAME));
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_401_if_same_code_twice() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
     let random_email = get_random_email();
     
     // Sign up a user
@@ -224,4 +234,6 @@ async fn should_return_401_if_same_code_twice() {
     // Try to verify with the same 2FA code again (should fail)
     let response = app.post_verify_2fa(&verify_body).await;
     assert_eq!(response.status().as_u16(), 401);
+
+    app.clean_up().await;
 }

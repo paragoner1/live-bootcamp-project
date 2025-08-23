@@ -75,6 +75,12 @@ impl AsRef<str> for LoginAttemptId {
     }
 }
 
+impl std::fmt::Display for LoginAttemptId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct TwoFACode(String);
 
@@ -103,6 +109,12 @@ impl Default for TwoFACode {
 impl AsRef<str> for TwoFACode {
     fn as_ref(&self) -> &str {
         &self.0
+    }
+}
+
+impl std::fmt::Display for TwoFACode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 

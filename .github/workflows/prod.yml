@@ -1,22 +1,42 @@
 name: Build, Test and Deploy to Prod
 
-# Trigger the workflow when changes are pushed to the main branch
 on:
   push:
     branches:
       - main
   workflow_dispatch:
 
+# New! We want to make sure SQLx doesn't throw compile time errors so we force offline mode.
+env:
+  SQLX_OFFLINE: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
 
+    # New! Our tests now require a running PostgreSQL and Redis instance!
+    # Service containers to run with the `test` container job
+    services:
+      postgres:
+        # Docker Hub image
+        image: postgres:15.2-alpine
+        # Environment variables scoped only for the `postgres` element
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: postgres
+        # Opens tcp port 5432 on the host and service container
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7.0-alpine
+        ports:
+          - 6379:6379
+
     steps:
-      # Checkout code from the repository
     - name: Checkout code
       uses: actions/checkout@v2
 
-      # Cache dependencies to speed up build times
     - name: Cache dependencies
       uses: actions/cache@v3
       with:
@@ -29,7 +49,10 @@ jobs:
         restore-keys: ${{ runner.os }}-cargo-
 
     - name: Install Rust
-      run: rustup update stable && rustup default stable
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
 
     - name: Build and test app-service code
       working-directory: ./app-service
@@ -37,11 +60,12 @@ jobs:
         cargo build --verbose
         cargo test --verbose
 
+      # New! Added DATABASE_URL environment variable!
     - name: Build and test auth-service code
       working-directory: ./auth-service
-      env:
-        JWT_SECRET: secret
       run: |
+        export JWT_SECRET=secret
+        export DATABASE_URL=postgres://postgres:${{ secrets.POSTGRES_PASSWORD }}@localhost:5432
         cargo build --verbose
         cargo test --verbose
 
@@ -86,6 +110,7 @@ jobs:
     - name: Copy compose.yml to droplet
       run: sshpass -v -p '${{ secrets.DROPLET_PASSWORD }}' scp -o StrictHostKeyChecking=no compose.yml root@${{ vars.DROPLET_IP }}:~
 
+      # New! Added POSTGRES_PASSWORD environment variable!
     - name: Deploy
       uses: appleboy/ssh-action@master
       with:
@@ -94,7 +119,9 @@ jobs:
         password: ${{ secrets.DROPLET_PASSWORD }}
         script: |
           cd ~
+          export JWT_SECRET=${{ secrets.JWT_SECRET }}
           export AUTH_SERVICE_IP=${{ vars.DROPLET_IP }}
-          docker compose down
-          docker compose pull
-          docker compose up -d
+          export POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          docker-compose down
+          docker-compose pull
+          docker-compose up -d

@@ -4,7 +4,7 @@ use crate::helpers::{get_random_email, TestApp};
 
 #[tokio::test]
 async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     // First create a user with 2FA enabled
     let random_email = get_random_email();
@@ -35,12 +35,14 @@ async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
     // Verify loginAttemptId is a valid UUID (not hard-coded "123456")
     let login_attempt_id = response_body["loginAttemptId"].as_str().unwrap();
     assert!(uuid::Uuid::parse_str(login_attempt_id).is_ok(), "loginAttemptId should be a valid UUID");
+
+    app.clean_up().await;
 }
 
 
 #[tokio::test]
 async fn login_returns_200() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     // First create a user
     let random_email = get_random_email();
@@ -62,4 +64,6 @@ async fn login_returns_200() {
     let response = app.post_login(&login_body).await;
 
     assert_eq!(response.status().as_u16(), 200);
+
+    app.clean_up().await;
 }
