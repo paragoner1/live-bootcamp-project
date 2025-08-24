@@ -27,7 +27,7 @@ pub struct SignupResponse {
     pub message: String,
 }
 
-#[tracing::instrument(name = "Signup", skip_all, err(Debug))]
+#[tracing::instrument(name = "Signup", skip_all)] // Updated
 pub async fn signup(
     State(app_state): State<AppState>,
     Json(request): Json<SignupRequest>,
@@ -48,7 +48,7 @@ pub async fn signup(
     user_store.add_user(user).await
         .map_err(|e| match e {
             crate::domain::UserStoreError::UserAlreadyExists => AuthAPIError::UserAlreadyExists,
-            _ => AuthAPIError::UnexpectedError,
+            _ => AuthAPIError::UnexpectedError(e.into()),
         })?;
 
     // Return success response

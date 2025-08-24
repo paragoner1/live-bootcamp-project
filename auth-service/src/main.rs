@@ -20,7 +20,8 @@ use sqlx::PgPool;
 
 #[tokio::main]
 async fn main() {
-    init_tracing();
+    color_eyre::install().expect("Failed to install color_eyre"); // New!
+    init_tracing().expect("Failed to initialize tracing"); // Updated!
 
     // Create PostgreSQL pool and run migrations
     let pg_pool = configure_postgresql().await;
