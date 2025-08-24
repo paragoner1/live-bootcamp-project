@@ -13,13 +13,15 @@ use auth_service::{
         },
         mock_email_client::MockEmailClient,
     },
-    utils::constants::{prod, DATABASE_URL, REDIS_HOST_NAME},
+    utils::{constants::{prod, DATABASE_URL, REDIS_HOST_NAME}, tracing::init_tracing},
     Application,
 };
 use sqlx::PgPool;
 
 #[tokio::main]
 async fn main() {
+    init_tracing();
+
     // Create PostgreSQL pool and run migrations
     let pg_pool = configure_postgresql().await;
     

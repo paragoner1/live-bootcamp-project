@@ -1,6 +1,7 @@
 // SPRINT 2: Domain-specific error types
 // This was added in Sprint 2 to provide proper error handling
 
+#[derive(Debug)]
 pub enum AuthAPIError {
     UserAlreadyExists,
     InvalidCredentials,
