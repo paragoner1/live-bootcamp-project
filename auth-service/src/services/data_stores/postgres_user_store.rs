@@ -140,8 +140,8 @@ async fn compute_password_hash(password: String) -> Result<String> { // Changed!
             .hash_password(password.as_bytes(), &salt)?
             .to_string();
 
-            Ok(password_hash)
-            // Err(eyre!("oh no!")) // New!
+            // Ok(password_hash)
+            Err(eyre!("oh no!")) // New!
         })
     })
     .await;
