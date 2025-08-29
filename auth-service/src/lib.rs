@@ -9,8 +9,7 @@ use axum::{
     Json, Router,
 };
 use domain::AuthAPIError;
-use routes::{signup};
-// use routes::{login, logout, signup, verify_2fa, verify_token};
+use routes::{login, logout, signup, verify_2fa, verify_token};
 use utils::tracing::{make_span_with_request_id, on_request, on_response};
 use serde::{Deserialize, Serialize};
 use tower_http::{cors::CorsLayer, services::ServeDir, trace::TraceLayer};
@@ -34,10 +33,10 @@ impl Application {
         let router = Router::new()
             .nest_service("/", ServeDir::new("assets"))
             .route("/signup", post(signup))
-            // .route("/login", post(login))
-            // .route("/verify-2fa", post(verify_2fa))
-            // .route("/logout", post(logout))
-            // .route("/verify-token", post(verify_token))
+            .route("/login", post(login))
+            .route("/verify-2fa", post(verify_2fa))
+            .route("/logout", post(logout))
+            .route("/verify-token", post(verify_token))
             .with_state(app_state)
             .layer(cors)
             .layer(

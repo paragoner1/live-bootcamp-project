@@ -1,5 +1,5 @@
 use super::{Email, Password, User};
-use color_eyre::eyre::Report;
+use color_eyre::eyre::{eyre, Context, Report, Result};
 use thiserror::Error;
 
 #[async_trait::async_trait]
@@ -40,10 +40,12 @@ pub trait BannedTokenStore {
     async fn contains_token(&self, token: &str) -> Result<bool, BannedTokenStoreError>;
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Error)]
 pub enum BannedTokenStoreError {
+    #[error("Token already banned")]
     TokenAlreadyBanned,
-    UnexpectedError,
+    #[error("Unexpected error")]
+    UnexpectedError(#[source] Report),
 }
 
 // This trait represents the interface all concrete 2FA code stores should implement
@@ -62,21 +64,31 @@ pub trait TwoFACodeStore {
     ) -> Result<(LoginAttemptId, TwoFACode), TwoFACodeStoreError>;
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Error)]
 pub enum TwoFACodeStoreError {
+    #[error("Login Attempt ID not found")]
     LoginAttemptIdNotFound,
-    UnexpectedError,
+    #[error("Unexpected error")]
+    UnexpectedError(#[source] Report),
+}
+
+impl PartialEq for TwoFACodeStoreError {
+    fn eq(&self, other: &Self) -> bool {
+        matches!(
+            (self, other),
+            (Self::LoginAttemptIdNotFound, Self::LoginAttemptIdNotFound)
+                | (Self::UnexpectedError(_), Self::UnexpectedError(_))
+        )
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct LoginAttemptId(String);
 
 impl LoginAttemptId {
-    pub fn parse(id: String) -> Result<Self, String> {
-        // Use the `parse_str` function from the `uuid` crate to ensure `id` is a valid UUID
-        uuid::Uuid::parse_str(&id)
-            .map(|_| LoginAttemptId(id))
-            .map_err(|_| "Invalid UUID format".to_string())
+    pub fn parse(id: String) -> Result<Self> {
+        let parsed_id = uuid::Uuid::parse_str(&id).wrap_err("Invalid login attempt id")?;
+        Ok(Self(parsed_id.to_string()))
     }
 }
 
@@ -103,12 +115,13 @@ impl std::fmt::Display for LoginAttemptId {
 pub struct TwoFACode(String);
 
 impl TwoFACode {
-    pub fn parse(code: String) -> Result<Self, String> {
-        // Ensure `code` is a valid 6-digit code
-        if code.len() == 6 && code.chars().all(|c| c.is_ascii_digit()) {
-            Ok(TwoFACode(code))
+    pub fn parse(code: String) -> Result<Self> {
+        let code_as_u32 = code.parse::<u32>().wrap_err("Invalid 2FA code")?;
+
+        if (100_000..=999_999).contains(&code_as_u32) {
+            Ok(Self(code))
         } else {
-            Err("2FA code must be exactly 6 digits".to_string())
+            Err(eyre!("Invalid 2FA code"))
         }
     }
 }

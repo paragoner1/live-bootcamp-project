@@ -23,6 +23,7 @@ pub struct VerifyTokenResponse {
     pub email: String,
 }
 
+#[tracing::instrument(name = "Verify token", skip_all)]
 pub async fn verify_token(
     State(app_state): State<AppState>,
     Json(request): Json<VerifyTokenRequest>,
@@ -34,7 +35,7 @@ pub async fn verify_token(
     // Check if token is banned
     let banned_token_store = app_state.banned_token_store.read().await;
     let is_banned = banned_token_store.contains_token(token.as_str()).await
-        .map_err(|_| AuthAPIError::UnexpectedError)?;
+        .map_err(|e| AuthAPIError::UnexpectedError(e.into()))?;
 
     if is_banned {
         return Err(AuthAPIError::InvalidCredentials);
@@ -42,7 +43,7 @@ pub async fn verify_token(
 
     // Verify token is valid using the same validation as the auth utils
     let claims = validate_token(token.as_str(), app_state.banned_token_store.clone()).await
-        .map_err(|_| AuthAPIError::InvalidCredentials)?;
+        .map_err(|e| AuthAPIError::UnexpectedError(e))?;
 
     // Return success response with user email
     let response = VerifyTokenResponse {

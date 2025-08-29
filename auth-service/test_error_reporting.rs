@@ -1,58 +1,78 @@
-use color_eyre::eyre::{eyre, Result};
-use thiserror::Error;
+use auth_service::{
+    domain::{Email, Password, LoginAttemptId, TwoFACode},
+    utils::auth::generate_auth_cookie,
+};
 
-#[derive(Debug, Error)]
-pub enum TestError {
-    #[error("Database connection failed")]
-    DatabaseError(#[source] eyre::Report),
-    #[error("Authentication failed")]
-    AuthError(#[source] eyre::Report),
-}
-
-fn simulate_database_error() -> Result<(), TestError> {
-    // Simulate a database connection error
-    Err(TestError::DatabaseError(eyre!("Connection timeout after 30 seconds")))
-}
-
-fn simulate_auth_error() -> Result<(), TestError> {
-    // Simulate an authentication error
-    Err(TestError::AuthError(eyre!("Invalid credentials provided")))
-}
-
-fn main() -> Result<()> {
+fn main() {
     // Initialize color_eyre for beautiful error reporting
-    color_eyre::install()?;
+    color_eyre::install().expect("Failed to install color_eyre");
     
+    // Initialize tracing
+    auth_service::utils::tracing::init_tracing().expect("Failed to initialize tracing");
+
     println!("=== Testing Enhanced Error Reporting ===\n");
-    
-    // Test 1: Database Error
-    println!("Test 1: Database Error");
-    println!("=====================");
-    if let Err(e) = simulate_database_error() {
-        eprintln!("Error: {:?}", e);
-        println!();
+
+    // Test 1: Invalid email parsing
+    println!("1. Testing invalid email parsing:");
+    match Email::parse("invalid-email".to_string()) {
+        Ok(_) => println!("   ✅ Unexpected success"),
+        Err(e) => {
+            println!("   ❌ Expected error:");
+            println!("   Error: {:?}", e);
+        }
     }
-    
-    // Test 2: Authentication Error
-    println!("Test 2: Authentication Error");
-    println!("============================");
-    if let Err(e) = simulate_auth_error() {
-        eprintln!("Error: {:?}", e);
-        println!();
+
+    // Test 2: Invalid password parsing
+    println!("\n2. Testing invalid password parsing:");
+    match Password::parse("123".to_string()) {
+        Ok(_) => println!("   ✅ Unexpected success"),
+        Err(e) => {
+            println!("   ❌ Expected error:");
+            println!("   Error: {:?}", e);
+        }
     }
-    
-    // Test 3: Error Chain
-    println!("Test 3: Error Chain");
-    println!("===================");
-    let result: Result<()> = Err(eyre!("Root cause: Network timeout")
-        .wrap_err("Failed to connect to database")
-        .wrap_err("User authentication failed"));
-    
-    if let Err(e) = result {
-        eprintln!("Error Chain: {:?}", e);
-        println!();
+
+    // Test 3: Invalid login attempt ID parsing
+    println!("\n3. Testing invalid login attempt ID parsing:");
+    match LoginAttemptId::parse("not-a-uuid".to_string()) {
+        Ok(_) => println!("   ✅ Unexpected success"),
+        Err(e) => {
+            println!("   ❌ Expected error:");
+            println!("   Error: {:?}", e);
+        }
     }
-    
-    println!("=== Error Reporting Test Complete ===");
-    Ok(())
+
+    // Test 4: Invalid 2FA code parsing
+    println!("\n4. Testing invalid 2FA code parsing:");
+    match TwoFACode::parse("123".to_string()) {
+        Ok(_) => println!("   ✅ Unexpected success"),
+        Err(e) => {
+            println!("   ❌ Expected error:");
+            println!("   Error: {:?}", e);
+        }
+    }
+
+    // Test 5: Valid email and auth cookie generation
+    println!("\n5. Testing valid email and auth cookie generation:");
+    match Email::parse("test@example.com".to_string()) {
+        Ok(email) => {
+            match generate_auth_cookie(&email) {
+                Ok(cookie) => {
+                    println!("   ✅ Successfully generated auth cookie");
+                    println!("   Cookie name: {}", cookie.name());
+                    println!("   Cookie value length: {}", cookie.value().len());
+                }
+                Err(e) => {
+                    println!("   ❌ Failed to generate auth cookie:");
+                    println!("   Error: {:?}", e);
+                }
+            }
+        }
+        Err(e) => {
+            println!("   ❌ Failed to parse email:");
+            println!("   Error: {:?}", e);
+        }
+    }
+
+    println!("\n=== Error Reporting Test Complete ===");
 }

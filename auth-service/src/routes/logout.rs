@@ -11,6 +11,7 @@ use crate::{
     utils::{auth::validate_token, constants::JWT_COOKIE_NAME},
 };
 
+#[tracing::instrument(name = "Logout", skip_all)]
 pub async fn logout(
     State(state): State<AppState>,
     jar: CookieJar,
@@ -28,15 +29,14 @@ pub async fn logout(
     };
 
     // Add token to banned list
-    if state
+    if let Err(e) = state
         .banned_token_store
         .write()
         .await
         .add_token(token.to_owned())
         .await
-        .is_err()
     {
-        return (jar, Err(AuthAPIError::UnexpectedError));
+        return (jar, Err(AuthAPIError::UnexpectedError(e.into())));
     }
 
     // Remove jwt cookie
