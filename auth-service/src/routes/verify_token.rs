@@ -4,6 +4,7 @@ use axum::{
     response::IntoResponse,
     Json,
 };
+use secrecy::Secret;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -34,7 +35,8 @@ pub async fn verify_token(
 
     // Check if token is banned
     let banned_token_store = app_state.banned_token_store.read().await;
-    let is_banned = banned_token_store.contains_token(token.as_str()).await
+    let token_secret = Secret::new(token.as_str().to_owned());
+    let is_banned = banned_token_store.contains_token(&token_secret).await
         .map_err(|e| AuthAPIError::UnexpectedError(e.into()))?;
 
     if is_banned {

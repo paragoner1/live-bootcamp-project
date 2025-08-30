@@ -6,6 +6,7 @@ use axum::{
 };
 use axum_extra::extract::CookieJar;
 use serde::{Deserialize, Serialize};
+use secrecy::{ExposeSecret, Secret};
 
 use crate::{
     app_state::AppState,
@@ -16,7 +17,7 @@ use crate::{
 #[derive(Deserialize)]
 pub struct LoginRequest {
     pub email: String,
-    pub password: String,
+    pub password: Secret<String>,
 }
 
 // The login route can return 2 possible success responses.
@@ -47,7 +48,7 @@ pub async fn login(
         Err(_) => return (jar, Err(AuthAPIError::InvalidCredentials)),
     };
 
-    let email = match Email::parse(request.email) {
+    let email = match Email::parse(Secret::new(request.email)) {
         Ok(email) => email,
         Err(_) => return (jar, Err(AuthAPIError::InvalidCredentials)),
     };
@@ -97,7 +98,7 @@ async fn handle_2fa(
     // TODO: send 2FA code via the email client. Return `AuthAPIError::UnexpectedError` if the operation fails.
     if let Err(e) = state
         .email_client
-        .send_email(email, "2FA Code", two_fa_code.as_ref())
+        .send_email(email, "2FA Code", two_fa_code.as_ref().expose_secret())
         .await
     {
         return (jar, Err(AuthAPIError::UnexpectedError(e)));
@@ -106,7 +107,7 @@ async fn handle_2fa(
     // Finally, we need to return the login attempt ID to the client
     let response = LoginResponse::TwoFactorAuth(TwoFactorAuthResponse {
         message: "2FA required".to_string(),
-        login_attempt_id: login_attempt_id.as_ref().to_string(),
+        login_attempt_id: login_attempt_id.as_ref().expose_secret().to_string(),
     });
 
     (jar, Ok((StatusCode::PARTIAL_CONTENT, Json(response))))

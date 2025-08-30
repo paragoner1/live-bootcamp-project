@@ -1,5 +1,6 @@
 use super::{Email, Password, User};
 use color_eyre::eyre::{eyre, Context, Report, Result};
+use secrecy::{ExposeSecret, Secret};
 use thiserror::Error;
 
 #[async_trait::async_trait]
@@ -36,8 +37,8 @@ impl PartialEq for UserStoreError {
 
 #[async_trait::async_trait]
 pub trait BannedTokenStore {
-    async fn add_token(&mut self, token: String) -> Result<(), BannedTokenStoreError>;
-    async fn contains_token(&self, token: &str) -> Result<bool, BannedTokenStoreError>;
+    async fn add_token(&mut self, token: Secret<String>) -> Result<(), BannedTokenStoreError>;
+    async fn contains_token(&self, token: &Secret<String>) -> Result<bool, BannedTokenStoreError>;
 }
 
 #[derive(Debug, Error)]
@@ -82,41 +83,53 @@ impl PartialEq for TwoFACodeStoreError {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct LoginAttemptId(String);
+#[derive(Debug, Clone)]
+pub struct LoginAttemptId(Secret<String>);
+
+impl PartialEq for LoginAttemptId {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.expose_secret() == other.0.expose_secret()
+    }
+}
 
 impl LoginAttemptId {
-    pub fn parse(id: String) -> Result<Self> {
-        let parsed_id = uuid::Uuid::parse_str(&id).wrap_err("Invalid login attempt id")?;
-        Ok(Self(parsed_id.to_string()))
+    pub fn parse(id: Secret<String>) -> Result<Self> {
+        let parsed_id = uuid::Uuid::parse_str(id.expose_secret()).wrap_err("Invalid login attempt id")?;
+        Ok(Self(parsed_id.to_string().into()))
     }
 }
 
 impl Default for LoginAttemptId {
     fn default() -> Self {
         // Use the `uuid` crate to generate a random version 4 UUID
-        LoginAttemptId(uuid::Uuid::new_v4().to_string())
+        LoginAttemptId(Secret::new(uuid::Uuid::new_v4().to_string()))
     }
 }
 
-impl AsRef<str> for LoginAttemptId {
-    fn as_ref(&self) -> &str {
+impl AsRef<Secret<String>> for LoginAttemptId {
+    fn as_ref(&self) -> &Secret<String> {
         &self.0
     }
 }
 
 impl std::fmt::Display for LoginAttemptId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+        write!(f, "{}", self.0.expose_secret())
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct TwoFACode(String);
+#[derive(Clone, Debug)]
+pub struct TwoFACode(Secret<String>);
+
+impl PartialEq for TwoFACode {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.expose_secret() == other.0.expose_secret()
+    }
+}
 
 impl TwoFACode {
-    pub fn parse(code: String) -> Result<Self> {
-        let code_as_u32 = code.parse::<u32>().wrap_err("Invalid 2FA code")?;
+    pub fn parse(code: Secret<String>) -> Result<Self> {
+        let code_as_u32 = code.expose_secret().parse::<u32>().wrap_err("Invalid 2FA code")?;
 
         if (100_000..=999_999).contains(&code_as_u32) {
             Ok(Self(code))
@@ -133,19 +146,19 @@ impl Default for TwoFACode {
         use rand::Rng;
         let mut rng = rand::thread_rng();
         let code = rng.gen_range(100000..1000000).to_string();
-        TwoFACode(code)
+        TwoFACode(Secret::new(code))
     }
 }
 
-impl AsRef<str> for TwoFACode {
-    fn as_ref(&self) -> &str {
+impl AsRef<Secret<String>> for TwoFACode {
+    fn as_ref(&self) -> &Secret<String> {
         &self.0
     }
 }
 
 impl std::fmt::Display for TwoFACode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+        write!(f, "{}", self.0.expose_secret())
     }
 }
 
@@ -156,37 +169,37 @@ mod tests {
     #[test]
     fn test_login_attempt_id_parse_valid_uuid() {
         let valid_uuid = "123e4567-e89b-12d3-a456-426614174000".to_string();
-        let result = LoginAttemptId::parse(valid_uuid.clone());
+        let result = LoginAttemptId::parse(Secret::new(valid_uuid.clone()));
         assert!(result.is_ok());
-        assert_eq!(result.unwrap().0, valid_uuid);
+        assert_eq!(result.unwrap().0.expose_secret(), &valid_uuid);
     }
 
     #[test]
     fn test_login_attempt_id_parse_invalid_uuid() {
         let invalid_uuid = "not-a-uuid".to_string();
-        let result = LoginAttemptId::parse(invalid_uuid);
+        let result = LoginAttemptId::parse(Secret::new(invalid_uuid));
         assert!(result.is_err());
     }
 
     #[test]
     fn test_login_attempt_id_default() {
         let id = LoginAttemptId::default();
-        assert!(uuid::Uuid::parse_str(&id.0).is_ok());
+        assert!(uuid::Uuid::parse_str(id.0.expose_secret()).is_ok());
     }
 
     #[test]
     fn test_two_fa_code_parse_valid() {
         let valid_code = "123456".to_string();
-        let result = TwoFACode::parse(valid_code.clone());
+        let result = TwoFACode::parse(Secret::new(valid_code.clone()));
         assert!(result.is_ok());
-        assert_eq!(result.unwrap().0, valid_code);
+        assert_eq!(result.unwrap().0.expose_secret(), &valid_code);
     }
 
     #[test]
     fn test_two_fa_code_parse_invalid() {
         let invalid_codes = vec!["12345", "1234567", "abcdef", "12a456"];
         for code in invalid_codes {
-            let result = TwoFACode::parse(code.to_string());
+            let result = TwoFACode::parse(Secret::new(code.to_string()));
             assert!(result.is_err(), "Should fail for: {}", code);
         }
     }
@@ -194,9 +207,9 @@ mod tests {
     #[test]
     fn test_two_fa_code_default() {
         let code = TwoFACode::default();
-        assert_eq!(code.0.len(), 6);
-        assert!(code.0.chars().all(|c| c.is_ascii_digit()));
-        let num: i32 = code.0.parse().unwrap();
+        assert_eq!(code.0.expose_secret().len(), 6);
+        assert!(code.0.expose_secret().chars().all(|c| c.is_ascii_digit()));
+        let num: i32 = code.0.expose_secret().parse().unwrap();
         assert!(num >= 100000 && num < 1000000);
     }
 } 

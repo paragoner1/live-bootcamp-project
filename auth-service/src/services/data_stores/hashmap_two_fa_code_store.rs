@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use secrecy::Secret;
 
 use crate::domain::{
     data_stores::{LoginAttemptId, TwoFACode, TwoFACodeStore, TwoFACodeStoreError},
@@ -45,7 +46,7 @@ mod tests {
     #[tokio::test]
     async fn test_add_and_get_code() {
         let mut store = HashmapTwoFACodeStore::default();
-        let email = Email::parse("test@example.com".to_string()).unwrap();
+        let email = Email::parse(Secret::new("test@example.com".to_string())).unwrap();
         let login_attempt_id = LoginAttemptId::default();
         let code = TwoFACode::default();
 
@@ -64,7 +65,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_nonexistent_code() {
         let store = HashmapTwoFACodeStore::default();
-        let email = Email::parse("test@example.com".to_string()).unwrap();
+        let email = Email::parse(Secret::new("test@example.com".to_string())).unwrap();
 
         let result = store.get_code(&email).await;
         assert!(matches!(result, Err(TwoFACodeStoreError::LoginAttemptIdNotFound)));
@@ -73,7 +74,7 @@ mod tests {
     #[tokio::test]
     async fn test_remove_code() {
         let mut store = HashmapTwoFACodeStore::default();
-        let email = Email::parse("test@example.com".to_string()).unwrap();
+        let email = Email::parse(Secret::new("test@example.com".to_string())).unwrap();
         let login_attempt_id = LoginAttemptId::default();
         let code = TwoFACode::default();
 

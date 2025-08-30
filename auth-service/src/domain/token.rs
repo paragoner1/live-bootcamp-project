@@ -3,6 +3,7 @@
 
 use chrono::{Duration, Utc};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use secrecy::{ExposeSecret, Secret};
 use serde::{Deserialize, Serialize};
 
 use super::Email;
@@ -23,7 +24,7 @@ impl Token {
         let expires_at = now + Duration::hours(24); // 24 hour expiration
 
         let claims = Claims {
-            sub: email.as_ref().to_string(),
+            sub: email.as_ref().expose_secret().to_string(),
             exp: expires_at.timestamp(),
             iat: now.timestamp(),
         };
@@ -74,7 +75,7 @@ mod tests {
 
     #[test]
     fn test_token_creation_and_verification() {
-        let email = Email::parse("test@example.com".to_string()).unwrap();
+        let email = Email::parse(Secret::new("test@example.com".to_string())).unwrap();
         let secret = "test_secret";
 
         let token = Token::new(&email, secret).unwrap();
@@ -86,7 +87,7 @@ mod tests {
 
     #[test]
     fn test_token_verification_with_wrong_secret() {
-        let email = Email::parse("test@example.com".to_string()).unwrap();
+        let email = Email::parse(Secret::new("test@example.com".to_string())).unwrap();
         let secret = "test_secret";
         let wrong_secret = "wrong_secret";
 

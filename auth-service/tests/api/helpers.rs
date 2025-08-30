@@ -1,6 +1,7 @@
 // SPRINT 3: Test helpers with user store and banned token store
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use secrecy::Secret;
 use auth_service::{
     app_state::{AppState, BannedTokenStoreType, TwoFACodeStoreType, EmailClientType},
     services::{
@@ -155,7 +156,7 @@ async fn configure_postgresql() -> (PgPool, String) {
     let postgresql_conn_url_with_db = format!("{}/{}", postgresql_conn_url, db_name);
 
     // Create a new connection pool and return it
-    let pool = get_postgres_pool(&postgresql_conn_url_with_db)
+    let pool = get_postgres_pool(&Secret::new(postgresql_conn_url_with_db))
         .await
         .expect("Failed to create Postgres connection pool!");
     

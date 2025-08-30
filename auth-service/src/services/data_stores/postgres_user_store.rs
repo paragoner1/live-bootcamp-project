@@ -6,6 +6,7 @@ use argon2::{
 };
 
 use color_eyre::eyre::{eyre, Context, Result};
+use secrecy::{ExposeSecret, Secret};
 use sqlx::PgPool;
 
 use crate::domain::{
@@ -27,8 +28,8 @@ impl PostgresUserStore {
 impl UserStore for PostgresUserStore {
     #[tracing::instrument(name = "Adding user to PostgreSQL", skip_all)]
     async fn add_user(&mut self, user: User) -> Result<(), UserStoreError> {
-        let email = user.email.as_ref().to_string();
-        let password_hash = compute_password_hash(user.password.as_ref().to_string()).await
+        let email = user.email.as_ref().expose_secret().to_string();
+        let password_hash = compute_password_hash(user.password.as_ref().expose_secret().to_owned()).await
             .map_err(UserStoreError::UnexpectedError)?; // Updated!
 
         sqlx::query!(
@@ -56,7 +57,7 @@ impl UserStore for PostgresUserStore {
 
     #[tracing::instrument(name = "Retrieving user from PostgreSQL", skip_all)]
     async fn get_user(&self, email: &Email) -> Result<User, UserStoreError> {
-        let email_str = email.as_ref().to_string();
+        let email_str = email.as_ref().expose_secret().to_string();
         
         let row = sqlx::query!(
             "SELECT email, password_hash, requires_2fa FROM users WHERE email = $1",
@@ -68,8 +69,8 @@ impl UserStore for PostgresUserStore {
         .ok_or(UserStoreError::UserNotFound)?;
 
         let user = User::new(
-            Email::parse(row.email).map_err(|e| UserStoreError::UnexpectedError(eyre!(e)))?,
-            Password::parse(row.password_hash).map_err(|e| UserStoreError::UnexpectedError(eyre!(e)))?,
+            Email::parse(Secret::new(row.email)).map_err(|e| UserStoreError::UnexpectedError(eyre!(e)))?,
+            Password::parse(Secret::new(row.password_hash)).map_err(|e| UserStoreError::UnexpectedError(eyre!(e)))?,
             row.requires_2fa,
         );
 
@@ -78,7 +79,7 @@ impl UserStore for PostgresUserStore {
 
     #[tracing::instrument(name = "Validating user credentials in PostgreSQL", skip_all)]
     async fn validate_user(&self, email: &Email, password: &Password) -> Result<(), UserStoreError> {
-        let email_str = email.as_ref().to_string();
+        let email_str = email.as_ref().expose_secret().to_string();
         
         let row = sqlx::query!(
             "SELECT password_hash FROM users WHERE email = $1",
@@ -89,7 +90,7 @@ impl UserStore for PostgresUserStore {
         .map_err(|e| UserStoreError::UnexpectedError(e.into()))?
         .ok_or(UserStoreError::UserNotFound)?;
 
-        verify_password_hash(row.password_hash.clone(), password.as_ref().to_string()).await
+        verify_password_hash(row.password_hash.clone(), password.as_ref().expose_secret().to_string()).await
             .map_err(|_| UserStoreError::InvalidCredentials)?;
 
         Ok(())

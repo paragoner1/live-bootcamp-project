@@ -11,6 +11,7 @@ use axum::{
 use domain::AuthAPIError;
 use routes::{login, logout, signup, verify_2fa, verify_token};
 use utils::tracing::{make_span_with_request_id, on_request, on_response};
+use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
 use tower_http::{cors::CorsLayer, services::ServeDir, trace::TraceLayer};
 use sqlx::{postgres::PgPoolOptions, PgPool};
@@ -105,8 +106,8 @@ fn log_error_chain(e: &(dyn Error + 'static)) {
 }
 
 /// Create a new PostgreSQL connection pool
-pub async fn get_postgres_pool(url: &str) -> Result<PgPool, sqlx::Error> {
-	PgPoolOptions::new().max_connections(5).connect(url).await
+pub async fn get_postgres_pool(url: &secrecy::Secret<String>) -> Result<PgPool, sqlx::Error> {
+	PgPoolOptions::new().max_connections(5).connect(url.expose_secret()).await
 }
 
 pub fn get_redis_client(redis_hostname: String) -> redis::RedisResult<redis::Client> {
