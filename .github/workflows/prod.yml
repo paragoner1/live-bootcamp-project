@@ -66,6 +66,7 @@ jobs:
       run: |
         export JWT_SECRET=secret
         export DATABASE_URL=postgres://postgres:${{ secrets.POSTGRES_PASSWORD }}@localhost:5432
+        export POSTMARK_AUTH_TOKEN=${{ secrets.POSTMARK_AUTH_TOKEN }}
         cargo build --verbose
         cargo test --verbose
 
