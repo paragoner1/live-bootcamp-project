@@ -1,4 +1,6 @@
 use crate::helpers::{get_random_email, TestApp};
+use wiremock::matchers::{method, path};
+use wiremock::{Mock, ResponseTemplate};
 
 //...
 
@@ -16,6 +18,14 @@ async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
 
     let signup_response = app.post_signup(&signup_body).await;
     assert_eq!(signup_response.status().as_u16(), 201);
+
+    // Define an expectation for the mock server
+    Mock::given(path("/email")) // Expect an HTTP request to the "/email" path
+        .and(method("POST")) // Expect the HTTP method to be POST
+        .respond_with(ResponseTemplate::new(200)) // Respond with an HTTP 200 OK status
+        .expect(1) // Expect this request to be made exactly once
+        .mount(&app.email_server) // Mount this expectation on the mock email server
+        .await; // Await the asynchronous operation to ensure the mock server is set up before proceeding
 
     // Then login with the same credentials
     let login_body = serde_json::json!({
@@ -54,6 +64,14 @@ async fn login_returns_200() {
 
     let signup_response = app.post_signup(&signup_body).await;
     assert_eq!(signup_response.status().as_u16(), 201);
+
+    // Define an expectation for the mock server
+    Mock::given(path("/email")) // Expect an HTTP request to the "/email" path
+        .and(method("POST")) // Expect the HTTP method to be POST
+        .respond_with(ResponseTemplate::new(200)) // Respond with an HTTP 200 OK status
+        .expect(1) // Expect this request to be made exactly once
+        .mount(&app.email_server) // Mount this expectation on the mock email server
+        .await; // Await the asynchronous operation to ensure the mock server is set up before proceeding
 
     // Then login with the same credentials
     let login_body = serde_json::json!({

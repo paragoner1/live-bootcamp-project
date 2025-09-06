@@ -5,6 +5,8 @@ use auth_service::{
     ErrorResponse,
 };
 use secrecy::{ExposeSecret, Secret};
+use wiremock::matchers::{method, path};
+use wiremock::{Mock, ResponseTemplate};
 
 use crate::helpers::{get_random_email, TestApp};
 
@@ -78,6 +80,13 @@ async fn should_return_401_if_incorrect_credentials() {
     let response = app.post_signup(&signup_body).await;
     assert_eq!(response.status().as_u16(), 201);
 
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&app.email_server)
+        .await;
+
     // Login to get 2FA code
     let login_body = serde_json::json!({
         "email": random_email,
@@ -114,6 +123,13 @@ async fn should_return_401_if_old_code() {
     });
     let response = app.post_signup(&signup_body).await;
     assert_eq!(response.status().as_u16(), 201);
+
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(2)
+        .mount(&app.email_server)
+        .await;
 
     // Login first time to get first 2FA code
     let login_body = serde_json::json!({
@@ -158,6 +174,13 @@ async fn should_return_200_if_correct_code() {
     });
     let response = app.post_signup(&signup_body).await;
     assert_eq!(response.status().as_u16(), 201);
+
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&app.email_server)
+        .await;
 
     // Login to get 2FA code
     let login_body = serde_json::json!({
@@ -205,6 +228,13 @@ async fn should_return_401_if_same_code_twice() {
     });
     let response = app.post_signup(&signup_body).await;
     assert_eq!(response.status().as_u16(), 201);
+
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&app.email_server)
+        .await;
 
     // Login to get 2FA code
     let login_body = serde_json::json!({

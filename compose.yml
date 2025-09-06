@@ -20,6 +20,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       # Use the Docker service name 'db' as the host when running inside Docker
       DATABASE_URL: "postgres://postgres:${POSTGRES_PASSWORD}@db:5432"
+      POSTMARK_AUTH_TOKEN: ${POSTMARK_AUTH_TOKEN}
     depends_on:
       - db
       - redis
